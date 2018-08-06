@@ -1,0 +1,24 @@
+
+# Use this file to customize your demo.
+# Write computer specific settings in config.local.yml, which won't be versioned.
+demo:
+  audioTool: oidos
+  name: demo
+  closeWhenFinished: true
+paths:
+  7z: C:\\Program Files\\7-Zip\\7z.exe
+  crinkler: C:\\Users\\Leon\\Downloads\\crinkler20a\\crinkler.exe
+  4klang: D:\\Shaders\\SDK\\4klang_release\\4klang_source\\3.0.1
+  oidos: D:\\Shaders\\SDK\\Oidos_2.1.0
+  python2: C:\\Program Files (x86)\\Python 2.7\\python.exe
+shader:
+  filename: shader.frag
+  globals:
+    float:
+      - PI = 3.14159
+      - TAU = 6.283
+      - PIHALF = 1.7079
+      - PIQUART = 0.785397
+      - epsilon = .001
+      - steps = 30.
+      - far = 10.

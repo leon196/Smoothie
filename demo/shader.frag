@@ -8,7 +8,7 @@ const float PI = 3.14159;
 const float TAU = 6.283;
 const float PIHALF = 1.7079;
 const float PIQUART = 0.785397;
-const float epsilon = .001;
+const float epsilon = .0001;
 const float steps = 30.;
 const float far = 100.;
 
@@ -23,6 +23,7 @@ const float far = 100.;
 #define sdist(p,r) (length(p)-r)
 #define ss(a,b,v) smoothstep(a,b,v)
 #define add(a,b) a = mix(b,a,step(a.z,b.z))
+#define beat1(v) smoothstep(1., 0., .1/abs(sin(time*PI+v)))
 
 // Raymarching
 float random (vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233)))* 43758.5453123); }
@@ -124,13 +125,13 @@ vec3 colorBanana (vec2 uv, float dither) {
 
 vec4 orange (vec3 p) {
 	return vec4(p.xz,
-		max(sdist(p, 1.), abs(p.y)-.1),
+		max(sdist(p, 1.), abs(p.y)-.04),
 		1.);
 }
 
 vec4 lemon (vec3 p) {
 	return vec4(p.xz,
-		max(sdist(p, 1.), abs(p.y)-.1),
+		max(sdist(p, 1.), abs(p.y)-.04),
 		2.);
 }
 
@@ -140,15 +141,15 @@ vec4 carot (vec3 p) {
 	p.xz -= normalize(p.xz) * sin(-abs(pp.z)*2.)*.05;
 	p.xz += normalize(p.xz) * abs(sin(p.y*100.)+sin(atan(p.z,p.x)*3.)) * .002;
 	return vec4(p.xz,
-		max(sdist(p.xz, 1.), abs(p.y)-.1),
+		max(sdist(p.xz, 1.), abs(p.y)-.04),
 		3.);
 }
 
 vec4 cucumber (vec3 p) {
 	float angle = atan(p.z,p.x);
-	p.xz -= normalize(p.xz) * abs((1.-abs(sin(angle*20.)+.5)) * .01 + sin(angle*1.5) * .1);
+	p.xz -= normalize(p.xz) * abs((1.-abs(sin(angle*20.)+.5)) * .01 + cos(angle*1.5) * .1);
 	return vec4(p.xz,
-		max(sdist(p.xz, 1.), abs(p.y)-.1),
+		max(sdist(p.xz, 1.), abs(p.y)-.04),
 		4.);
 }
 
@@ -156,35 +157,52 @@ vec4 banana (vec3 p) {
 	float angle = atan(p.z,p.x);
 	p.xz -= normalize(p.xz) * abs((abs(sin(angle*20.)+.5)) * .01 + sin(angle*3.) * .05);
 	return vec4(p.xz,
-		max(sdist(p.xz, 1.), abs(p.y)-.1),
+		max(sdist(p.xz, 1.), abs(p.y)-.04),
 		5.);
+}
+
+void select (vec3 pos, float number, inout vec4 scene) {
+	if (number == 0.) add(scene, orange(pos));
+	else if (number == 1.) add(scene, lemon(pos));
+	else if (number == 2.) add(scene, cucumber(pos));
+	else if (number == 3.) add(scene, carot(pos));
+	else if (number == 4.) add(scene, banana(pos));
+}
+
+void field (vec3 pos, float space, inout vec4 scene) {
+	vec3 p = pos;
+	float number = floor(p.z / space);
+	number = mod(number, 5.);
+	pos.xz = repeat(pos.xz, space);
+	pos.y += sin(length(p.xz)-time)*.3;
+	pos.yz *= rot(sin(p.z*4.+time)*.1);
+	select(pos, number, scene);
 }
 
 vec4 geometry (vec3 pos)
 {
 	vec4 scene, shape;
-	vec3 p = pos;
-	float x, cell;
-	scene.z = pos.y+2.;
+	vec3 p;
+	float x, cell, space, number;
+	scene.z = 10.;
 	scene.xy = pos.xz;
 
 	// pos.xz *= rot(time*.955);
 	// pos.yz *= rot(time*.65);
 	// pos.yz *= rot(time*.265);
 
-	add(scene, orange(pos+vec3(0,0,1.5)));
-	add(scene, lemon(pos-vec3(2,0,0)));
+	space = 2.;
+	field(pos, space, scene);
+	// field(pos + vec3(space/2.,0.,space/2.), space, scene);
 
+	/*
 	p = pos;
 	x = p.x + time;
 	cell = PI;
 	p.zx = toroidal(p.zx, 7.);
 	p.yz *= rot(PI/2. + floor(x/cell) + time);
 	p.x = repeat(x, cell);
-	add(scene, cucumber(p));
-
-	add(scene, carot(pos+vec3(2,0,2)));
-	add(scene, banana(pos-vec3(2,0,2)));
+	*/
 
 	return scene;
 }
@@ -196,15 +214,16 @@ float mapGlass (vec3 pos) {
 	float radius = 1.;
 	float thin = .05;
 	p.y -= h;
-	return min(max(max(sdist(pos, radius), -sdist(pos, radius+thin)), p.y), torus(p, vec2(sqrt(radius*radius-h*h)-thin/2., thin/2.)));
+	return smoothmin(max(max(sdist(pos, radius), -sdist(pos, radius+thin)), p.y), torus(p, vec2(sqrt(radius*radius-h*h)-thin/2., thin/2.)), .05);
 }
 
-vec4 raymarchGlass (vec3 pos, vec3 ray) {
+vec4 raymarchGlass (vec3 pos, vec3 ray, inout vec4 hit) {
 	float total = 0.;
 	vec2 e = vec2(epsilon,0);
 	float dither = random(gl_FragCoord.xy/synth_Resolution.xy);
 	for (float i = steps; i >= 0.; --i) {
 		float dist = mapGlass(pos);
+		hit.w = total;
 		if (dist < epsilon * total) {
 			return vec4(normalize(vec3(mapGlass(pos+e.xyy)-mapGlass(pos-e.xyy),
 				mapGlass(pos+e.yxy)-mapGlass(pos-e.yxy),
@@ -212,7 +231,7 @@ vec4 raymarchGlass (vec3 pos, vec3 ray) {
 				i/steps
 			);
 		} else if (total > far) break;
-		dist *= .9 + .1 * dither;
+		// dist *= .9 + .1 * dither;
 		total += dist;
 		pos += ray * dist;
 	}
@@ -251,14 +270,16 @@ void main()
 	vec4 hit, hit2, scene, glass;
 	vec3 eye, target, ray, pos, color;
 	vec2 uv = (gl_FragCoord.xy-.5*synth_Resolution.xy)/synth_Resolution.y;
-	eye = vec3(0,1,5);
+	eye = vec3(2,-10,7);
 	target = vec3(0);
 	ray = look(eye, target, uv);
-	glass = raymarchGlass(eye, ray);
-	float isGlass = step(0.01, length(glass.xyz));
-	glass.w = mix(1., glass.w, isGlass);
-	ray = mix(ray, reflect(ray, glass.xyz), isGlass * (dot(ray, glass.xyz)*.5+.5));
-	ray = normalize(ray);
+	// glass = raymarchGlass(eye, ray, hit2);
+	// float isGlass = step(0.01, length(glass.xyz));
+	// glass.w = mix(1., glass.w, isGlass);
+	// * (dot(ray, glass.xyz)*.5+.5)
+	// isGlass *= step(hit2.w, length(hit.xyz));
+	// ray = mix(ray, reflect(ray, glass.xyz), isGlass);
+	// ray = normalize(ray);
 
 	scene = raymarching(eye, ray, hit);
 	pos = hit.xyz;
@@ -268,12 +289,13 @@ void main()
 	// float ao = mix(glass.w, 1., step(length)) * hit.w;
 
 	color = vec3(1);
-	if (scene.w == 0.) color = colorGround(uv, dither);
-	else if (scene.w == 1.) color = colorAgrum(uv, dither, vec3(1.0, 0.66, 0.0));
+	// if (scene.w == 0.) color = colorGround(uv, dither);
+	if (scene.w == 1.) color = colorAgrum(uv, dither, vec3(1.0, 0.66, 0.0));
 	else if (scene.w == 2.) color = colorAgrum(uv, dither, vec3(1.0, 0.93, 0.0));
 	else if (scene.w == 3.) color = colorCarot(uv, dither);
 	else if (scene.w == 4.) color = colorCucumber(uv, dither);
 	else if (scene.w == 5.) color = colorBanana(uv, dither);
-
+	// color = mix(color, vec3((color.r+color.g+color.b)/3.), beat1(0.));
+	ao = pow(ao, 1./2.2);
 	gl_FragColor = vec4(color * ao * step(length(eye-pos), far), 1);
 }

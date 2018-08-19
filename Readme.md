@@ -2,6 +2,8 @@
 
 4kb PC intro by ponk (code) + glafouk (music) released at Evoke 2018 
 
+[pouet](https://www.pouet.net/prod.php?which=77683) - [shadertoy](https://www.shadertoy.com/view/ll3yDs) - [youtube](https://www.youtube.com/watch?v=rn01yIpgonA)
+
 <img src="/Screenshot.png?raw=true" alt="Screenshot" width="100%"/>
 
 # 4k Demo Oven

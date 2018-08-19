@@ -3,7 +3,7 @@
 # Write computer specific settings in config.local.yml, which won't be versioned.
 demo:
   audioTool: oidos
-  name: demo
+  name: juicy
   closeWhenFinished: true
 paths:
   7z: C:\\Program Files\\7-Zip\\7z.exe
@@ -20,14 +20,16 @@ shader:
       - PIHALF = 1.7079
       - PIQUART = 0.785397
       - epsilon = .001
-      - steps = 50.
+      - steps = 100.
       - far = 40.
+      - count = 8.
       - s0 = 0.
-      - s1 = 20.5
+      - s1 = 20.75
       - s2 = 41.5
-      - s3 = 61.5
-      - s4 = 90.
-      - s5 = 120.
-      - s6 = 100.
-      - s7 = 100.
+      - s3 = 51.
+      - s4 = 61.5
+      - s5 = 82.
+      - s6 = 122.
       - speed = 1.5
+      - size = 1.
+      - thin = .04

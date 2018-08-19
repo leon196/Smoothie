@@ -10,217 +10,159 @@ const float TAU = 6.283;
 const float PIHALF = 1.7079;
 const float PIQUART = 0.785397;
 const float epsilon = .001;
-const float steps = 50.;
+const float steps = 100.;
 const float far = 40.;
 const float s0 = 0.;
 const float s1 = 20.5;
-const float s2 = 42.;
-const float s3 = 61.5;
-const float s4 = 90.;
-const float s5 = 120.;
-const float s6 = 150.;
-const float s7 = 180.;
+const float s2 = 41.5;
+const float s3 = 51.;
+const float s4 = 61.5;
+const float s5 = 82.;
+const float s6 = 122.;
 const float speed = 1.5;
+const float count = 8.;
+const float size = 1.;
+const float thin = .04;
 
 // begin
 
-// ponk (Leon Denise) 19/07/2018
+// ponk (Leon Denise) 18/08/2018
 // most lines below are from the community
 // licensed under hippie love conspiracy
 // happy tweaking
 
 #define repeat(p,r) (mod(p,r)-r/2.)
-#define sdist(p,r) (length(p)-r)
-#define add(a,b) a = mix(b,a,step(a.z,b.z))
-#define slice(p,r,h) max(sdist(p, r), abs(p.z)-h)
-#define timeline (mod(time, 180.))
-// #define timeline (65.+mod(time,10.))
-// #define timeline 156.
-#define cut(at) clamp(abs(timeline-at), 0., 1.)
-#define cuts cut(0.)
-#define beat1 (.5+.5*sin(time*20.))*(smoothstep(2., 1., abs(timeline-40.))+smoothstep(1.,.5,abs(timeline-51.))+smoothstep(1.,.5,abs(timeline-61.)))
-
-// Raymarching
-// https://www.shadertoy.com/view/4djSRW
-float random (vec2 p) {
-		vec3 p3  = fract(vec3(p.xyx) * 100.1031);
-	    p3 += dot(p3, p3.yzx + 19.19);
-	    return fract((p3.x + p3.y) * p3.z);
- }
-float box (vec3 p, vec3 b) { vec3 d = abs(p) - b; return min(max(d.x,max(d.y,d.z)),0.0) + length(max(d,0.0)); }
-float cone( vec3 p, vec2 c ) { float q = length(p.xy); return dot(c,vec2(q,p.z)); }
-float torus (vec3 p, vec2 t) { vec2 q = vec2(length(p.xz)-t.x,p.y); return length(q)-t.y; }
-float smoothmin (float a, float b, float r) { float h = clamp(.5+.5*(b-a)/r, 0., 1.); return mix(b, a, h)-r*h*(1.-h); }
+void add (inout vec4 a, vec4 b) { a = mix(b,a,step(a.z,b.z)); }
+float random (vec2 p) { vec3 p3  = fract(vec3(p.xyx) * 100.1031); p3 += dot(p3, p3.yzx + 19.19); return fract((p3.x + p3.y) * p3.z); }
 mat2 rot (float a) { float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
-vec3 look (vec3 eye, vec3 target, vec2 anchor) {
-	anchor /= 1.+length(anchor)*2.*beat1;
-	vec3 forward = normalize(target-eye);
-	vec3 right = normalize(cross(forward, vec3(0,1,0)));
-	vec3 up = normalize(cross(right, forward));
-	return normalize(forward / mix(1., 3., beat1) + right * anchor.x + up * anchor.y);
-}
-vec2 toroidal (vec2 p, float r) { return vec2(length(p)-r, atan(p.y,p.x)*r); }
-float polar(inout vec2 p, float repetitions) {
-	float angle = 2.*PI/repetitions;
-	float a = atan(p.y, p.x) + angle/2.;
-	float r = length(p);
-	float c = floor(a/angle);
-	a = mod(a,angle) - angle/2.;
-	p = vec2(cos(a), sin(a))*r;
-	if (abs(c) >= (repetitions/2.)) c = abs(c);
-	return c;
-}
-
-vec3 colorCucumber (vec2 p, float dither) {
-	float dist = length(p);
-	float shade = smoothstep(.3, .5, dist)*.5+smoothstep(.475,.5, dist);
-	shade += dither * .1;
-	polar(p, 3.);
-	p.x -= .3;
-	float crop2 = smoothstep(PI*.5,PI*.8,abs(atan(p.y,p.x)));
-	polar(p, 12.);
-	p.x -= .15;
-	p.x *= .5;
-	shade += .3*sin(smoothstep(.1,.01,length(p))*PI)*crop2;
-	shade = clamp(shade, 0., 1.);
-	return mix(vec3(1), vec3(0.05, 0.67, 0.05), shade);
-}
-
-vec3 colorAgrum (vec2 p, float dither, vec3 color) {
-	float dist = length(p);
-	float shade = smoothstep(.45, .5, dist)*.5+smoothstep(.475,.5, dist)*.5;
-	float angle = atan(p.y,p.x);
-	dist = length(p);
-	dist -= smoothstep(.0,1.,abs(sin(angle*5.))+.4)*.1 * dist;
-	float pulp = abs(sin(angle*60.)*sin(dist*60.+sin(angle*60.)))*.25+.5;
-	shade += smoothstep(1.,.0,.1/abs(sin(angle*5.))) * smoothstep(.41,.4, dist) * smoothstep(.01,.02, dist) * pulp;
-	shade += dither;
-	shade = clamp(shade, 0., 1.);
-	return mix(vec3(1), color, shade);
-}
-
-vec3 colorCarot (vec2 p, float dither) {
-	float dist = length(p);
-	polar(p, 6.);
-	dist = mix(p.x, dist, dist);
-	float shade = smoothstep(.3, .5, dist)*.5+smoothstep(.475,.5, dist)*.5;
-	shade += ((abs(sin(dist*100.))+abs(sin(dist*200.))+abs(sin(dist*20.)))*.5+.5)*.2;
-	shade += .4;
-	shade += dither;
-	shade = clamp(shade, 0., 1.);
-	return mix(vec3(1), vec3(1.0, 0.42, 0.0), shade);
-}
-
-vec3 colorBanana (vec2 p, float dither) {
-	float dist = length(p);
-	float shade = smoothstep(.5, .3, dist)*.5;
-	polar(p, 3.);
-	p.x -= .15;
-	dist = length(p);
-	shade += smoothstep(.2,.0,dist);
-	polar(p, 3.);
-	p.x -= .05;
-	p.y *= 1.+abs(p.x)*20.;
-	dist = length(abs(p)-.02);
-	float dark = 1.-clamp(.01/abs(dist), 0., 1.);
-	dark = dark * .5 + .5;
-	shade += dither;
-	shade = clamp(shade, 0., 1.);
-	return mix(vec3(1), vec3(1.0, 0.99, 0.69), shade)*dark;
-}
-
-// cucumber p.xz -= normalize(p.xz) * abs((1.-abs(sin(angle*20.)+.5)) * .01 + cos(angle*1.5) * .1);
-// banana p.xz -= normalize(p.xz) * abs((abs(sin(angle*20.)+.5)) * .01 + sin(angle*3.) * .05);
-
-void sketch (inout vec4 scene, vec3 pos, float orbiting, float bouncing, float dropping, float splashing, float gnacing, float swimming) {
-	vec3 p, pp;
-	float r, salt, size, thin, angle, offset, ratio, number, anim, fall, splash, bouncy, jump, falloff, gnac, cell, shape;
-	const float count = 8.;
-	for (float index = count; index > 0.; --index) {
-		r = index / count;
-		p = pos;
-
-		// ratio = mod(time*speed, 1.);
-		ratio = mod(time*speed+r*.2*splashing, 1.);
-		number = 1.+mod(mix(floor(time*speed),index,clamp(swimming,0.,1.)), 3.);
-		anim = smoothstep(.8,1.,ratio)+smoothstep(.2,.0,ratio);
-		fall = smoothstep(.0,.2,ratio);
-		splash = smoothstep(.2,.4,ratio);
-		bouncy = smoothstep(.3,.2,ratio) * fall;
-		jump = smoothstep(.0,.7,ratio);
-		falloff = smoothstep(.3,1.,ratio);
-		offset = floor(time*speed);
-		gnac = floor(ratio*8.);
-		salt = random(vec2(r+offset*.14598));
-		size = 1.-.5*r*splashing;
-		thin = .04;
-
-		// orbit
-		p.xz *= rot((ratio*PI+PI/2.)*orbiting);
-
-		// bounce
-		angle = time*50.*speed;
-		p.xy *= 1.+.4*anim*bouncing*vec2(sin(angle), cos(angle));
-
-		// drop
-		p.y += ((fall*8.-8.+r)-(bouncy * abs(sin(time+r))*2.))*dropping;
-		angle = r*TAU+offset;
-		p.xz += vec2(cos(angle), sin(angle)) * splash * (1.+4.*salt)*dropping;
-		p.xz *= rot(salt*TAU*dropping);
-		p.zy *= rot((PI/2.-r*.1)*(dropping+swimming));
-
-		// splash
-		p += vec3(sin(r*TAU*5.654+offset)*5.*ratio, 5.-14.*jump+14.*falloff, index*.5) * splashing;
-		p.xz *= rot(ratio*5.*splashing);
-		p.yz *= rot(r*5.456*splashing);
-
-		// swimming
-		p += vec3(sin(r*TAU*3.51)*4., sin(time+r*TAU), (r*2.-1.) * (2.+sin(time+r)))*swimming;
-		p.z += sin(length(p.xy)*4.-time*5.)*.1*swimming;
-		p.zx *= rot(sin(time+r*TAU+p.y)*.5*swimming);
-		p.yz *= rot(sin(time+r+p.y)*.2*swimming);
-
-		// gnac
-		pp = p;
-		cell = polar(pp.xy, 4.);
-		pp.x -= 1. + 1. * step(gnac, cell+2.);
-		shape = sdist(pp.xy, .5);
-		polar(pp.xy, 16.);
-		pp.x -= .5;
-		shape = min(shape, sdist(pp.xy, .15));
-		shape = max(slice(p, size, thin), -mix(10., shape, gnacing));
-		shape = mix(10., shape, mix(1., step(gnac, 5.), gnacing));
-
-		add(scene, vec4(p.xy/size, shape, number));
-	}
+void toroidal (inout vec2 p, float r) { p = vec2(length(p)-r, atan(p.y,p.x)*r); }
+void polar (inout vec2 p, float c) {
+	float an = TAU/c;
+	float a = mod(atan(p.y,p.x)+an/2., an)-an/2.;
+	p = vec2(cos(a), sin(a))*length(p);
 }
 
 vec4 geometry (vec3 pos)
 {
 	vec4 scene;
 	vec3 p, pp;
-	float dropping, bouncing, splashing, gnacing, orbiting, swimming;
-	const float count = 4.;
+	float r, salt, z, angle, offset, ratio, number, anim, fall, splash, bouncy, gnac, cell, shape;
 	scene.z = 10.;
 	scene.xy = pos.xz;
 	scene.w = 0.;
 
-	orbiting = step(timeline, s1);
-	bouncing = step(s1, timeline) * step(timeline, s2);
-	dropping = step(s2, timeline) * step(timeline, s3);
-	swimming = step(s3, timeline) * step(timeline, s4);
-	splashing = step(s4, timeline) * step(timeline, s5);
-	gnacing = step(s5, timeline) * step(timeline, s6);
+	ratio = mod(time*speed, 1.);
+	number = 1.+mod(floor(time*speed), 4.);
+	offset = floor(time*speed);
 
-	sketch(scene, pos, orbiting, bouncing, dropping, splashing, gnacing, swimming);
+	// bouncing
+	if ((time < s2 && time > s1) || time > s5) {
+		p = pos;
+		z = time*speed;
+		if (time < s5) {
+			p.z += 3.;
+			p.yx *= rot(sin(floor(z)*1.5156));
+			p.yz *= rot(sin(floor(z)*2.5156));
+		}
+		angle = z*25.;
+		ratio = mod(z, 1.);
+		number = 1.+mod(floor(z), 4.);
+		anim = smoothstep(.8,1.,ratio)+smoothstep(.2,.0,ratio);
+		p.xy *= 1.+.4*anim*vec2(sin(angle), cos(angle));
 
-	// orbiting = 0.;
-	// bouncing = 0.;
-	// dropping = 0.;
-	// swimming = 0.;
-	// splashing = 1.;
-	// gnacing = 0.;
-	// sketch(scene, pos, orbiting, bouncing, dropping, splashing, gnacing, swimming);
+		// gnacinc
+		if (time > s1+10.7 && time < s2) {
+			pp = p;
+			// cell = 2.+sign(pp.x)+2.*sign(pp.y);
+			// pp.xy = abs(pp.xy)-.75 - 1. * step(gnac, cell+1.);
+			cell = floor((atan(p.y,p.x)/PI*.5+.5)*5.);
+			polar(pp.xy, 5.);
+			pp.x -= 1.+step(floor(ratio*8.), cell);
+			shape = length(pp.xy)-.4;
+			polar(pp.xy, 16.);
+			pp.x -= .4;
+			shape = min(shape, length(pp.xy)-.1);
+			add(scene, vec4(p.xy/size, max(max(length(p)-size, abs(p.z)-thin), -shape), number));
+
+		} else add(scene, vec4(p.xy/size, max(length(p)-size, abs(p.z)-thin), number));
+	}
+
+	// orbiting
+	if (time < s1) {
+		p = pos;
+		p.y -= mix(10., 0., smoothstep(s0, s1/2., time));
+		p.z -= mix(8., -2., smoothstep(s1/3., s1/1.5, time));
+		p.xz *= rot(ratio*PI+PI/2.);
+		add(scene, vec4(p.xy/size, max(length(p)- size, abs(p.z)-thin), number));
+
+	// swimming
+	} else if (time < s5 && time > s4) {
+		pos.z += mix(4., -5., smoothstep(s4, s4 + 10., time));
+		pos.xz *= rot(-PI/2.);
+		cell = 3.;
+		z = pos.z + time;
+		number = 1.+mod(floor(abs(z)/cell), 4.);
+		r = number / 4.;
+		pos.y += sin(pos.z * .2+time);
+		p = pos;
+		p.xy *= rot(pos.z*.1);
+		p.x -= 4.;
+		p.z = repeat(z, cell);
+		p.y += sin(length(p.xz)*4.-time*5.+number)*.1;
+		p.zx *= rot(sin(time+r*TAU+p.y)*.5);
+		p.yz *= rot(sin(time*2.+r+p.x*2.)*.2);
+		p.y = abs(p.y)-2.*mix(0., .5+.5*sin(number+time), smoothstep(65., 70., time));
+		p.y = abs(p.y)-1.*mix(0., .5+.5*sin(number+time), smoothstep(70., 75., time));
+		add(scene, vec4(p.xz/size, max(length(p.xzy)-size, abs(p.y)-thin), number));
+
+	// dropping
+	} else if (time < s3 && time > s2) {
+		pos.z -= 4.;
+		pos.yz *= rot(PI/8.);
+		for (float index = count; index > 0.; --index) {
+			r = index / count;
+			p = pos;
+			salt = random(vec2(r+offset*.14598));
+			fall = smoothstep(.0,.2,ratio);
+			splash = smoothstep(.2,.4,ratio);
+			bouncy = smoothstep(.3,.2,ratio) * fall;
+			p.y += ((fall*8.-8.+r)-(bouncy * abs(sin(time+r))*2.));
+			angle = r*TAU+offset;
+			p.xz += vec2(cos(angle), sin(angle)) * splash * (1.+4.*salt);
+			p.xz *= rot(salt*TAU);
+			p.zy *= rot(PI/2.-r*.1);
+			add(scene, vec4(p.xy/size, max(length(p)- size, abs(p.z)-thin), number));
+		}
+
+	// dancing
+	} else if (time < s6 && time > s5) {
+		p = pos;
+		p.yz *= rot(PI/2.);
+		p.xz *= rot(5.*smoothstep(s5+20., s6, time));
+		toroidal(p.xz, 6.);
+		p.z += p.y * .5;
+		number = 1.+mod(abs(floor(p.z / PI)+floor((p.y-time*5.)/4.)), 4.);
+		p.y = repeat(p.y-time*5., 4.);
+		p.z = repeat(p.z, PI);
+		p.xz *= rot(time+number);
+		p.yz *= rot(time+number);
+		add(scene, vec4(p.xy/size, max(length(p)- size, abs(p.z)-thin), number));
+	}
+
+
+	// splashing
+	if ((time < s4 && time > s3)){// || time > s5+10. ) {
+		for (float index = count; index > 0.; --index) {
+			r = index / count;
+			cell = time*speed/2.+r;
+			ratio = mod(cell, 1.);
+			p = pos-vec3(0,0,5);
+			p += vec3(sin(r*TAU*5.654+floor(cell))*7.*ratio, 5.-12.*smoothstep(.0,.7,ratio)+12.*smoothstep(.3,1.,ratio), index*.5);
+			p.xz *= rot(ratio*8.);
+			p.yz *= rot(r*5.456);
+			add(scene, vec4(p.xy/size, max(length(p)- size, abs(p.z)-thin), 1.+mod(floor(cell)+index, 4.)));
+		}
+	}
 
 	return scene;
 }
@@ -238,7 +180,7 @@ vec4 raymarching (vec3 pos, vec3 ray, inout vec4 hit)
 			hit.w = i/steps;
 			break;
 		}
-		dist *= .9 + .1 * dither;
+		dist *= .5 + .1 * dither;
 		total += dist;
 		pos += ray * dist;
 	}
@@ -248,49 +190,82 @@ vec4 raymarching (vec3 pos, vec3 ray, inout vec4 hit)
 void main()
 {
 	vec4 hit, hit2, scene, glass;
-	vec3 eye, target, ray, pos, color;
+	vec3 eye, ray, pos, color;
 	vec2 uv = (gl_FragCoord.xy-.5*synth_Resolution.xy)/synth_Resolution.y;
-	// uv = mix(uv, -uv, step(sin(length(uv)*8.-time*4.), .0));
-	// uv *= rot(floor(length(uv)*8.)*time);
-	// eye = vec3(0,-1,3);
-	eye = mix(vec3(0,4,25), vec3(0,0,3), smoothstep(s0, s1/2., timeline));
-	eye = mix(eye, vec3(vec2(1)*rot(floor(time*speed)*1.5156),1), step(s1, timeline));
-	eye = mix(eye, vec3(0,5,8), step(s2, timeline));
-	eye = mix(eye, vec3(0,-3,8), step(s3, timeline));
-	// eye = mix(eye, vec3(vec2(1)*rot(floor(time*speed)*1.5156),1), step(s4, timeline));
-	// eye = vec3(1,2,5);
-	// eye.xz *= rot(mouse.x*2.-1.);
-	// eye.yz *= rot(mouse.y*2.-1.);
-	target = vec3(0);
-	ray = look(eye, target, uv);
-	color = mix(vec3(.9,.5,.5), vec3(1,1,.7), uv.y);
-
-	vec2 p = uv;
-	p *= 1.-length(p)*.5;
-	float cell = .05;
-	vec2 id = floor(p/cell);
-	p = repeat(p, cell);
-	p *= rot(time+random(id/10.)*TAU);
-	p.x -= cell/4.;
-	color += .0002/length(p);
-
+	float cell;
+	eye = vec3(0,0,-5);
+	if (time > s5) eye.z = -.5-5. * smoothstep(s5, s5 + 10., time);
+	ray = normalize(vec3(uv,1.+((sin(time*25.))*(smoothstep(2., 1., abs(time-40.))+smoothstep(1.,.5,abs(time-51.))+smoothstep(1.,.5,abs(time-61.))))*.3));
 	scene = raymarching(eye, ray, hit);
 	pos = hit.xyz;
-	uv = scene.xy * .5;
-	float dither = (random(uv)*2.-1.)*.1;
 
-	// hit.w = pow(hit.w, 1./2.2);
-	float far = step(length(eye-pos), far);
+	if (scene.w == 1.) color = vec3(1.0, 0.66, 0.0);
+	else if (scene.w == 2.) color = vec3(0.376, 0.819, 0.278);
+	else if (scene.w == 3.) color = vec3(1, 0.913, 0.341);
+	else if (scene.w == 4.) color = vec3(1.0, 0.11, 0.05);
 
-	if (scene.w == 1.) color = colorAgrum(uv, dither, vec3(1.0, 0.66, 0.0));
-	else if (scene.w == 2.) color = colorAgrum(uv, dither, vec3(1, 0.913, 0.341));
-	else if (scene.w == 3.) color = colorAgrum(uv, dither, vec3(0.376, 0.819, 0.278));
-	// else if (scene.w == 3.) color = colorCucumber(uv, dither);
-	// else if (scene.w == 4.) color = colorCarot(uv, dither);
-	// else if (scene.w == 5.) color = colorBanana(uv, dither);
-	// color *= 1.-clamp(pos.z, 0., 1.);
+	// background
+	if (length(color) == 0. || pos.z > far/1.5) {
+		vec2 p = (gl_FragCoord.xy-.5*synth_Resolution.xy)/synth_Resolution.y;
+		vec2 id = floor(p/.05);
+		p = repeat(p, .05);
+		p *= rot(time+random(id/20.)*TAU);
+		p.x -= .05/4.;
+		color = mix(vec3(.9,.5,.5), vec3(1,1,.7), uv.y);
+		float n = .01+.99*random(id/10.);
+		color += smoothstep(.005*n,.004*n,length(p));
 
- // * pow(smoothstep(.5, 1., hit.w), 1./2.2) * step(length(eye-pos), far);
+	}
+	// slice texture
+	else {
+		uv = scene.xy*.5;
+		float dist = length(uv);
+		float shade = smoothstep(.45, .5, dist)*.5+smoothstep(.475,.5, dist)*.5;
+		float angle = atan(uv.y,uv.x);
+		dist -= smoothstep(.0,1.,abs(sin(angle*5.))+.4)*.1 * dist;
+		float pulp = abs(sin(angle*60.)*sin(dist*60.+sin(angle*60.)))*.25+.5;
+		color = mix(vec3(1), color, clamp(shade+smoothstep(1.,.0,.1/abs(sin(angle*5.))) * smoothstep(.41,.4, dist) * smoothstep(.01,.02, dist) * pulp + (random(scene.xy * .5)*2.-1.)*.1, 0., 1.));
+	}
 
-	gl_FragColor = vec4(cuts * color, 1);
+
+	if (time > s4) {
+		uv = (gl_FragCoord.xy-.5*synth_Resolution.xy)/synth_Resolution.y;
+		if (time < s5) {
+			uv.y = abs(uv.y)-.1;
+			cell = floor((uv.x+.25)/.25)/1.5;
+			uv.x = repeat(uv.x+.25, .25);
+		} else {
+			cell = 0.;//floor(atan(uv.x,uv.y)/TAU*8.+PI/2.);
+			polar(uv.yx, 8.);
+			uv.y -= .3;
+		}
+		for (float i = 16.; i > 0.; --i) {
+			float r = i / 16.;
+			float salt = random(vec2(r*10.16));
+			vec2 p = uv;
+			float ratio = mod(time*speed+r*.1+cell, 1.);
+			float number = 1.+mod(floor(r*.1+time*speed+cell), 4.);
+			vec3 c;
+			if (number == 1.) c = vec3(1.0, 0.66, 0.0);
+			else if (number == 2.) c = vec3(0.376, 0.819, 0.278);
+			else if (number == 3.) c = vec3(1, 0.913, 0.341);
+			else if (number == 4.) c = vec3(1.0, 0.11, 0.05);
+			float a = r*TAU*2.15498+floor(time*speed+r*.1+cell);
+			// p.x += sin(offset)*.25;
+			p += vec2(cos(a),sin(a)) * ratio * (.5+.5*salt) * .25;
+			p.y -= sin(ratio*PI) * .2;
+			float size = .01;
+			if (time < s5) size -= .005*salt*smoothstep(1.,.8,ratio);
+			else size += .02*salt*smoothstep(1.,.8,ratio);
+			color = mix(color, c, smoothstep(size,size-.002,length(p)));
+		}
+	}
+
+	gl_FragColor = vec4(clamp(abs(time), 0., 1.) * clamp(-(time-s6), 0., 1.) * color, 1);
+	vec2 p = (gl_FragCoord.xy-.5*synth_Resolution.xy)/synth_Resolution.y;
+	p *= 1.5*smoothstep(s6-15., s6-5., time);
+	p.y -= sin(sqrt(abs(p.x))) * .4;
+	p.y *= 1.25;
+	p.y += .1;
+	gl_FragColor *= smoothstep(.01, 0., length(p)-.5);
 }
